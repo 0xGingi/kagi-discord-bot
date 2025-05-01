@@ -2,6 +2,23 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, TextCha
 import { querySummarizer, queryFastGPT } from '../utils/kagiApi';
 import axios from 'axios';
 
+function calculateTokenPrice(inputTokens: number, outputTokens: number, engine: string | undefined): { price: number; formattedPrice: string } {
+  if (engine === 'muriel') {
+    return { price: 1.0, formattedPrice: '$1.00 USD (fixed price)' };
+  } else {
+    const totalTokens = inputTokens + outputTokens;
+    const price = (totalTokens / 1000) * 0.03;
+    return { 
+      price,
+      formattedPrice: `$${price.toFixed(4)} USD` 
+    };
+  }
+}
+
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
 export const data = new SlashCommandBuilder()
   .setName('summarize')
   .setDescription('Summarize content using the Kagi Universal Summarizer API')
@@ -180,7 +197,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
 
       const response = await querySummarizer(params);
-      const { output, tokens } = response.data;
+      const { output, tokens: inputTokens } = response.data;
+      
+      const outputTokens = estimateTokenCount(output);
+      
+      const { formattedPrice } = calculateTokenPrice(inputTokens, outputTokens, engine);
 
       const embed = new EmbedBuilder()
         .setColor(0x8855FF)
@@ -189,7 +210,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .addFields(
           { name: 'Engine', value: engine || 'cecil (default)', inline: true },
           { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
-          { name: 'Tokens Processed', value: tokens.toString(), inline: true }
+          { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
+          { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
+          { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
+          { name: 'Estimated Cost', value: formattedPrice, inline: true }
         )
         .setTimestamp()
         .setURL(params.url);
@@ -215,7 +239,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
 
       const response = await querySummarizer(params);
-      const { output, tokens } = response.data;
+      const { output, tokens: inputTokens } = response.data;
+      
+      const outputTokens = estimateTokenCount(output);
+      
+      const { formattedPrice } = calculateTokenPrice(inputTokens, outputTokens, engine);
 
       const embed = new EmbedBuilder()
         .setColor(0x8855FF)
@@ -224,7 +252,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .addFields(
           { name: 'Engine', value: engine || 'cecil (default)', inline: true },
           { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
-          { name: 'Tokens Processed', value: tokens.toString(), inline: true }
+          { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
+          { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
+          { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
+          { name: 'Estimated Cost', value: formattedPrice, inline: true }
         )
         .setTimestamp();
 
@@ -273,7 +304,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (messageText.length <= 10000) {
         params.text = messageText;
         const response = await querySummarizer(params);
-        const { output, tokens } = response.data;
+        const { output, tokens: inputTokens } = response.data;
+        
+        const outputTokens = estimateTokenCount(output);
+        
+        const { formattedPrice } = calculateTokenPrice(inputTokens, outputTokens, engine);
         
         const embed = new EmbedBuilder()
           .setColor(0x8855FF)
@@ -283,7 +318,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             { name: 'Engine', value: engine || 'cecil (default)', inline: true },
             { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
             { name: 'Messages Analyzed', value: formattedMessages.length.toString(), inline: true },
-            { name: 'Tokens Processed', value: tokens.toString(), inline: true }
+            { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
+            { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
+            { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
+            { name: 'Estimated Cost', value: formattedPrice, inline: true }
           )
           .setTimestamp();
         
@@ -300,7 +338,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           cache: false
         });
         
-        const { output, tokens } = response.data;
+        const { output, tokens: inputTokens } = response.data;
+        
+        const outputTokens = estimateTokenCount(output);
         
         const embed = new EmbedBuilder()
           .setColor(0x8855FF)
@@ -308,7 +348,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           .setDescription(output)
           .addFields(
             { name: 'Messages Analyzed', value: formattedMessages.length.toString(), inline: true },
-            { name: 'Tokens Processed', value: tokens.toString(), inline: true }
+            { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
+            { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
+            { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
+            { name: 'Estimated Cost', value: `$${((inputTokens + outputTokens) / 1000 * 0.015).toFixed(4)} USD`, inline: true }
           )
           .setTimestamp();
         

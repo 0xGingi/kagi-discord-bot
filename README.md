@@ -142,8 +142,10 @@ The bot uses Kagi API which has the following pricing:
 - FastGPT: 1.5¢ per query ($15 USD per 1000 queries)
 - Web/News Enrichment: $2 per 1000 searches ($0.002 USD per search)
 - Universal Summarizer:
-  - Consumer models (Cecil, Agnes): $0.030 USD per 1,000 tokens processed
-  - Enterprise model (Muriel): $1 USD per summary
+  - Consumer models (Cecil, Agnes): $0.030 USD per 1,000 tokens processed (both input and output tokens)
+  - Enterprise model (Muriel): $1 USD per summary regardless of token count
+
+For convenience, the `/summarize` command displays estimated costs based on both input and output tokens.
 
 ## License
 
