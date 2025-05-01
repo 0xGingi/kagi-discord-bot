@@ -9,7 +9,7 @@ This bot provides slash commands to interact with Kagi API:
 1. `/fastgpt` - Query the Kagi FastGPT API for AI-powered answers
 2. `/websearch` - Search for non-commercial web content using the Kagi Web Enrichment API
 3. `/newssearch` - Search for non-commercial news content using the Kagi News Enrichment API
-4. `/summarize` - Summarize URLs or text using the Kagi Universal Summarizer API
+4. `/summarize` - Summarize URLs, text, or channel conversations using the Kagi Universal Summarizer API
 
 ## Prerequisites
 
@@ -76,15 +76,18 @@ docker compose down
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your application
-3. Go to the "OAuth2" section
-4. In the URL Generator, select the following scopes:
+3. Go to the "Bot" section
+4. Enable the "Message Content Intent" under "Privileged Gateway Intents"
+5. Go to the "OAuth2" section
+6. In the URL Generator, select the following scopes:
    - `bot`
    - `applications.commands`
-5. In the bot permissions section, select:
+7. In the bot permissions section, select:
    - `Send Messages`
    - `Embed Links`
    - `Use Slash Commands`
-6. Copy the generated URL and open it in your browser to add the bot to your server
+   - `Read Message History`
+8. Copy the generated URL and open it in your browser to add the bot to your server
 
 ## Usage
 
@@ -116,6 +119,11 @@ For text:
 /summarize text text: The text to summarize [engine: Optional] [summary_type: Optional] [target_language: Optional]
 ```
 
+For channel messages:
+```
+/summarize channel [messages: Optional] [engine: Optional] [summary_type: Optional] [target_language: Optional]
+```
+
 Available options:
 - `engine`: 
   - `cecil` (Default) - Friendly, descriptive, fast
@@ -125,6 +133,7 @@ Available options:
   - `summary` (Default) - Paragraph(s) of prose
   - `takeaway` - Bulleted list of key points
 - `target_language`: Various language options (EN, ES, FR, etc.)
+- `messages`: Number of recent messages to include in channel summary (1-100, default: 20)
 
 ## Pricing
 
