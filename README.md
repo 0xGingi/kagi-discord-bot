@@ -130,8 +130,8 @@ Available options:
   - `agnes` - Formal, technical, analytical
   - `muriel` - Best-in-class, enterprise-grade ($1 per summary)
 - `summary_type`:
-  - `summary` (Default) - Paragraph(s) of prose
-  - `takeaway` - Bulleted list of key points
+  - `summary` - Paragraph(s) of prose
+  - `takeaway` (Default) - Bulleted list of key points
 - `target_language`: Various language options (EN, ES, FR, etc.)
 - `messages`: Number of recent messages to include in channel summary (1-100, default: 20)
 

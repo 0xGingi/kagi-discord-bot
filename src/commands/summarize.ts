@@ -47,7 +47,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(false)
           .addChoices(
             { name: 'Summary - Paragraph(s) of prose', value: 'summary' },
-            { name: 'Takeaway - Bulleted list of key points', value: 'takeaway' }
+            { name: 'Takeaway - Bulleted list of key points (Default)', value: 'takeaway' }
           )
       )
       .addStringOption(option =>
@@ -95,7 +95,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(false)
           .addChoices(
             { name: 'Summary - Paragraph(s) of prose', value: 'summary' },
-            { name: 'Takeaway - Bulleted list of key points', value: 'takeaway' }
+            { name: 'Takeaway - Bulleted list of key points (Default)', value: 'takeaway' }
           )
       )
       .addStringOption(option =>
@@ -145,7 +145,7 @@ export const data = new SlashCommandBuilder()
           .setRequired(false)
           .addChoices(
             { name: 'Summary - Paragraph(s) of prose', value: 'summary' },
-            { name: 'Takeaway - Bulleted list of key points', value: 'takeaway' }
+            { name: 'Takeaway - Bulleted list of key points (Default)', value: 'takeaway' }
           )
       )
       .addStringOption(option =>
@@ -170,7 +170,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const subcommand = interaction.options.getSubcommand();
     const engine = interaction.options.getString('engine') || undefined;
-    const summaryType = interaction.options.getString('summary_type') || undefined;
+    const summaryType = interaction.options.getString('summary_type') || 'takeaway';
     const targetLanguage = interaction.options.getString('target_language') || undefined;
     const cache = interaction.options.getBoolean('cache') ?? undefined;
 
@@ -209,7 +209,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .setDescription(output)
         .addFields(
           { name: 'Engine', value: engine || 'cecil (default)', inline: true },
-          { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
+          { name: 'Summary Type', value: summaryType || 'takeaway (default)', inline: true },
           { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
           { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
           { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
@@ -251,7 +251,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .setDescription(output)
         .addFields(
           { name: 'Engine', value: engine || 'cecil (default)', inline: true },
-          { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
+          { name: 'Summary Type', value: summaryType || 'takeaway (default)', inline: true },
           { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
           { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
           { name: 'Total Tokens', value: (inputTokens + outputTokens).toString(), inline: true },
@@ -316,7 +316,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           .setDescription(output)
           .addFields(
             { name: 'Engine', value: engine || 'cecil (default)', inline: true },
-            { name: 'Summary Type', value: summaryType || 'summary (default)', inline: true },
+            { name: 'Summary Type', value: summaryType || 'takeaway (default)', inline: true },
             { name: 'Messages Analyzed', value: formattedMessages.length.toString(), inline: true },
             { name: 'Input Tokens', value: inputTokens.toString(), inline: true },
             { name: 'Output Tokens', value: outputTokens.toString(), inline: true },
