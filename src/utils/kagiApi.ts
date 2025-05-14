@@ -77,6 +77,41 @@ interface SummarizerResponse {
   };
 }
 
+interface SearchParams {
+  q: string;
+  limit?: number;
+}
+
+interface SearchResponseMeta {
+  id: string;
+  node: string;
+  ms: number;
+  api_balance: number;
+}
+
+interface SearchResultObject {
+  t: number;
+  url: string;
+  title: string;
+  snippet?: string;
+  published?: string;
+  thumbnail?: {
+    url: string;
+    height?: number;
+    width?: number;
+  };
+}
+
+interface RelatedSearchObject {
+  t: number;
+  list: string[];
+}
+
+interface SearchResponse {
+  meta: SearchResponseMeta;
+  data: (SearchResultObject | RelatedSearchObject)[];
+}
+
 export async function queryFastGPT(params: FastGPTParams): Promise<FastGPTResponse> {
   try {
     const response = await axios.post('https://kagi.com/api/v0/fastgpt', params, {
@@ -143,6 +178,21 @@ export async function querySummarizer(params: SummarizerParams): Promise<Summari
     }
   } catch (error) {
     console.error('Error querying Universal Summarizer:', error);
+    throw error;
+  }
+}
+
+export async function querySearchAPI(params: SearchParams): Promise<SearchResponse> {
+  try {
+    const response = await axios.get('https://kagi.com/api/v0/search', {
+      params,
+      headers: {
+        'Authorization': `Bot ${KAGI_API_KEY}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error querying Kagi Search API:', error);
     throw error;
   }
 } 

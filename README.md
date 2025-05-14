@@ -10,6 +10,7 @@ This bot provides slash commands to interact with Kagi API:
 2. `/websearch` - Search for non-commercial web content using the Kagi Web Enrichment API
 3. `/newssearch` - Search for non-commercial news content using the Kagi News Enrichment API
 4. `/summarize` - Summarize URLs, text, or channel conversations using the Kagi Universal Summarizer API
+5. `/search` - Search the web using Kagi's premium Search API with full results (Currently Invite Only - Contact support@kagi.com for access)
 
 ## Prerequisites
 
@@ -108,6 +109,14 @@ Once the bot is added to your server, you can use the following slash commands:
 /newssearch query: Your search query
 ```
 
+### Search
+```
+/search query: Your search query [limit: Optional]
+```
+
+Available options:
+- `limit`: Maximum number of results to display (1-10, default: 5)
+
 ### Universal Summarizer
 For URLs:
 ```
@@ -141,6 +150,7 @@ The bot uses Kagi API which has the following pricing:
 
 - FastGPT: 1.5¢ per query ($15 USD per 1000 queries)
 - Web/News Enrichment: $2 per 1000 searches ($0.002 USD per search)
+- Search API: 2.5¢ per search ($25 USD per 1000 queries)
 - Universal Summarizer:
   - Consumer models (Cecil, Agnes): $0.030 USD per 1,000 tokens processed (both input and output tokens)
   - Enterprise model (Muriel): $1 USD per summary regardless of token count
