@@ -265,6 +265,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       await interaction.editReply({ embeds: [embed] });
     } else if (subcommand === 'channel') {
+      if (process.env.MESSAGE_CONTENT_ENABLED !== 'true') {
+        await interaction.editReply('The channel summarizer is disabled because the Message Content Intent is not enabled. Please contact the bot owner to enable it.');
+        return;
+      }
+
       if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
         await interaction.editReply('This command can only be used in text channels');
         return;

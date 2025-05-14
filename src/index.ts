@@ -5,12 +5,17 @@ import path from 'path';
 
 dotenv.config();
 
+const intents = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+];
+
+if (process.env.MESSAGE_CONTENT_ENABLED === 'true') {
+  intents.push(GatewayIntentBits.MessageContent);
+}
+
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ]
+  intents
 });
 
 declare module 'discord.js' {

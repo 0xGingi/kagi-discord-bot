@@ -37,6 +37,11 @@ CLIENT_ID=your_client_id_here
 
 # Kagi API Key
 KAGI_API_KEY=your_kagi_api_key_here
+
+# Message Content Intent (set to 'true' to enable channel summarization)
+# Note: For servers with more than 100 members, Discord requires verification
+# and approval to use this intent. Set to 'false' for large servers.
+MESSAGE_CONTENT_ENABLED=true
 ```
 
 ### Using Bun (Local Development)
@@ -78,17 +83,23 @@ docker compose down
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your application
 3. Go to the "Bot" section
-4. Enable the "Message Content Intent" under "Privileged Gateway Intents"
-5. Go to the "OAuth2" section
-6. In the URL Generator, select the following scopes:
+4. If you want to use the channel summarization feature:
+   - Enable the "Message Content Intent" under "Privileged Gateway Intents"
+   - Note: For servers with more than 100 members, Discord requires verification and approval for this intent
+   - Set `MESSAGE_CONTENT_ENABLED=true` in your `.env` file
+5. For large servers (>100 members) without verified intents:
+   - Set `MESSAGE_CONTENT_ENABLED=false` in your `.env` file
+   - The `/summarize channel` command will be disabled automatically
+6. Go to the "OAuth2" section
+7. In the URL Generator, select the following scopes:
    - `bot`
    - `applications.commands`
-7. In the bot permissions section, select:
+8. In the bot permissions section, select:
    - `Send Messages`
    - `Embed Links`
    - `Use Slash Commands`
    - `Read Message History`
-8. Copy the generated URL and open it in your browser to add the bot to your server
+9. Copy the generated URL and open it in your browser to add the bot to your server
 
 ## Usage
 
@@ -128,7 +139,7 @@ For text:
 /summarize text text: The text to summarize [engine: Optional] [summary_type: Optional] [target_language: Optional]
 ```
 
-For channel messages:
+For channel messages (requires MESSAGE_CONTENT_ENABLED=true):
 ```
 /summarize channel [messages: Optional] [engine: Optional] [summary_type: Optional] [target_language: Optional]
 ```
