@@ -44,6 +44,11 @@ export const data = new SlashCommandBuilder()
     option.setName('cache')
       .setDescription('Whether to allow cached responses (default: true)')
       .setRequired(false)
+  )
+  .addBooleanOption(option =>
+    option.setName('split_response')
+      .setDescription('Split long responses into multiple messages (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -58,6 +63,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
     
     const cache = interaction.options.getBoolean('cache') ?? true;
+    const splitResponse = interaction.options.getBoolean('split_response') ?? false;
 
     const response = await queryFastGPT({
       query,
@@ -83,15 +89,24 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
     }
 
-    if (replyContent.length > 2000) {
+    if (replyContent.length > 2000 && !splitResponse) {
       let truncatePoint = 1950;
       while (truncatePoint > 1900 && !/\s/.test(replyContent[truncatePoint])) {
         truncatePoint--;
       }
       replyContent = replyContent.substring(0, truncatePoint) + '... (response truncated due to length)';
+      await interaction.editReply(replyContent);
+    } else if (replyContent.length > 2000 && splitResponse) {
+      const chunks = splitMessageIntoChunks(replyContent, 1900);
+      
+      await interaction.editReply(chunks[0]);
+      
+      for (let i = 1; i < chunks.length; i++) {
+        await interaction.followUp(chunks[i]);
+      }
+    } else {
+      await interaction.editReply(replyContent);
     }
-
-    await interaction.editReply(replyContent);
   } catch (error: unknown) {
     console.error('Error in fastgpt command:', error);
     
@@ -105,4 +120,36 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     await interaction.editReply(errorMessage);
   }
+}
+
+function splitMessageIntoChunks(message: string, maxChunkSize: number): string[] {
+  const chunks: string[] = [];
+  let remainingMessage = message;
+  
+  while (remainingMessage.length > 0) {
+    if (remainingMessage.length <= maxChunkSize) {
+      chunks.push(remainingMessage);
+      break;
+    }
+    
+    let splitPoint = maxChunkSize;
+    while (splitPoint > maxChunkSize - 100 && !/\s/.test(remainingMessage[splitPoint])) {
+      splitPoint--;
+    }
+    
+    if (splitPoint <= maxChunkSize - 100) {
+      splitPoint = maxChunkSize;
+    }
+    
+    chunks.push(remainingMessage.substring(0, splitPoint));
+    remainingMessage = remainingMessage.substring(splitPoint);
+    
+    if (chunks.length > 0 && remainingMessage.length > 0) {
+      chunks[chunks.length - 1] += ' (continued...)';
+    }
+  }
+  
+  return chunks.map((chunk, index) => 
+    `${index > 0 ? `**[Part ${index + 1}/${chunks.length}]**\n\n` : ''}${chunk}`
+  );
 } 
