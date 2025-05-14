@@ -2,6 +2,23 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { queryFastGPT } from '../utils/kagiApi';
 import axios from 'axios';
 
+function convertHtmlToMarkdown(html: string): string {
+  return html
+    .replace(/<h[1-6]>(.*?)<\/h[1-6]>/g, '**$1**')
+    .replace(/<(b|strong)>(.*?)<\/(b|strong)>/g, '**$2**')
+    .replace(/<(i|em)>(.*?)<\/(i|em)>/g, '*$2*')
+    .replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)')
+    .replace(/<li>(.*?)<\/li>/g, '• $1')
+    .replace(/<p>(.*?)<\/p>/g, '$1\n')
+    .replace(/<\/?[^>]+(>|$)/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 export const data = new SlashCommandBuilder()
   .setName('fastgpt')
   .setDescription('Query the Kagi FastGPT API')
@@ -36,8 +53,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
 
     const { output, references } = response.data;
+    
+    // Convert HTML to Markdown
+    const formattedOutput = convertHtmlToMarkdown(output);
 
-    let replyContent = `**Query:** ${query}\n\n${output}`;
+    let replyContent = `**Query:** ${query}\n\n${formattedOutput}`;
 
     if (references && references.length > 0) {
       replyContent += '\n\n**Sources:**\n';
