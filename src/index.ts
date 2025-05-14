@@ -70,6 +70,11 @@ client.once(Events.ClientReady, readyClient => {
 
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  
+  if (!interaction.guild && process.env.ALLOW_DM_COMMANDS !== 'true') {
+    await interaction.reply({ content: 'Commands cannot be used in Direct Messages.', ephemeral: true });
+    return;
+  }
 
   const command = client.commands.get(interaction.commandName);
 

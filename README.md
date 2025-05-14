@@ -42,6 +42,9 @@ KAGI_API_KEY=your_kagi_api_key_here
 # Note: For bots in more than 100 servers, Discord requires verification
 # and approval to use this intent. Set to 'false' for large-scale bots.
 MESSAGE_CONTENT_ENABLED=true
+
+# Allow Commands in Direct Messages (set to 'true' to allow commands in DMs)
+ALLOW_DM_COMMANDS=false
 ```
 
 ### Using Bun (Local Development)
