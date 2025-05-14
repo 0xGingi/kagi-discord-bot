@@ -7,15 +7,28 @@ function convertHtmlToMarkdown(html: string): string {
     .replace(/<h[1-6]>(.*?)<\/h[1-6]>/g, '**$1**')
     .replace(/<(b|strong)>(.*?)<\/(b|strong)>/g, '**$2**')
     .replace(/<(i|em)>(.*?)<\/(i|em)>/g, '*$2*')
+    .replace(/<code>(.*?)<\/code>/g, '`$1`')
+    .replace(/<pre>(.*?)<\/pre>/g, '```\n$1\n```')
+    .replace(/<ul>(.*?)<\/ul>/gs, '$1')
+    .replace(/<ol>(.*?)<\/ol>/gs, '$1')
+    .replace(/<li>(.*?)<\/li>/g, '• $1\n')
     .replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)')
-    .replace(/<li>(.*?)<\/li>/g, '• $1')
-    .replace(/<p>(.*?)<\/p>/g, '$1\n')
+    .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
+    .replace(/<br\s*\/?>/g, '\n')
     .replace(/<\/?[^>]+(>|$)/g, '')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&ndash;/g, '–')
+    .replace(/&mdash;/g, '—')
+    .replace(/&#8211;/g, '–')
+    .replace(/&#8212;/g, '—')
+    .replace(/&#160;/g, ' ')
     .replace(/\n{3,}/g, '\n\n');
 }
 
@@ -71,7 +84,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     if (replyContent.length > 2000) {
-      replyContent = replyContent.substring(0, 1997) + '...';
+      let truncatePoint = 1950;
+      while (truncatePoint > 1900 && !/\s/.test(replyContent[truncatePoint])) {
+        truncatePoint--;
+      }
+      replyContent = replyContent.substring(0, truncatePoint) + '... (response truncated due to length)';
     }
 
     await interaction.editReply(replyContent);
