@@ -39,8 +39,8 @@ CLIENT_ID=your_client_id_here
 KAGI_API_KEY=your_kagi_api_key_here
 
 # Message Content Intent (set to 'true' to enable channel summarization)
-# Note: For servers with more than 100 members, Discord requires verification
-# and approval to use this intent. Set to 'false' for large servers.
+# Note: For bots in more than 100 servers, Discord requires verification
+# and approval to use this intent. Set to 'false' for large-scale bots.
 MESSAGE_CONTENT_ENABLED=true
 ```
 
@@ -85,9 +85,9 @@ docker compose down
 3. Go to the "Bot" section
 4. If you want to use the channel summarization feature:
    - Enable the "Message Content Intent" under "Privileged Gateway Intents"
-   - Note: For servers with more than 100 members, Discord requires verification and approval for this intent
+   - Note: For bots in more than 100 servers, Discord requires verification and approval for this intent
    - Set `MESSAGE_CONTENT_ENABLED=true` in your `.env` file
-5. For large servers (>100 members) without verified intents:
+5. For bots in many servers (>100) without verified intents:
    - Set `MESSAGE_CONTENT_ENABLED=false` in your `.env` file
    - The `/summarize channel` command will be disabled automatically
 6. Go to the "OAuth2" section
