@@ -221,6 +221,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (targetLanguage) {
         embed.addFields({ name: 'Target Language', value: targetLanguage, inline: true });
       }
+      
+      embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
 
       await interaction.editReply({ embeds: [embed] });
     } else if (subcommand === 'text') {
@@ -262,6 +264,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (targetLanguage) {
         embed.addFields({ name: 'Target Language', value: targetLanguage, inline: true });
       }
+      
+      embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
 
       await interaction.editReply({ embeds: [embed] });
     } else if (subcommand === 'channel') {
@@ -334,6 +338,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           embed.addFields({ name: 'Target Language', value: targetLanguage, inline: true });
         }
         
+        embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
+        
         await interaction.editReply({ embeds: [embed] });
       } else {
         const query = `Summarize the following chat conversation:\n\n${messageText}`;
@@ -359,6 +365,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             { name: 'Estimated Cost', value: `$${((inputTokens + outputTokens) / 1000 * 0.015).toFixed(4)} USD`, inline: true }
           )
           .setTimestamp();
+        
+        embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
         
         await interaction.editReply({ embeds: [embed] });
       }

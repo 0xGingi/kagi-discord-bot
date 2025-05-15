@@ -34,6 +34,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setColor(0x0099FF)
       .setTitle(`Web Search Results for: ${query}`)
       .setDescription('Non-commercial web content from Kagi Enrichment API')
+      .setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` })
       .setTimestamp();
 
     const maxResults = Math.min(10, searchResults.length);
@@ -54,7 +55,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     if (searchResults.length > maxResults) {
-      embed.setFooter({ text: `Showing ${maxResults} of ${searchResults.length} results` });
+      embed.setFooter({ text: `Showing ${maxResults} of ${searchResults.length} results | API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
     }
 
     await interaction.editReply({ embeds: [embed] });

@@ -26,6 +26,7 @@ interface FastGPTResponse {
     id: string;
     node: string;
     ms: number;
+    api_balance?: number;
   };
   data: {
     output: string;
@@ -52,6 +53,7 @@ interface EnrichmentResponse {
     id: string;
     node: string;
     ms: number;
+    api_balance?: number;
   };
   data: SearchObject[];
 }
@@ -70,6 +72,7 @@ interface SummarizerResponse {
     id: string;
     node: string;
     ms: number;
+    api_balance?: number;
   };
   data: {
     output: string;

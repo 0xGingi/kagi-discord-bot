@@ -88,6 +88,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         replyContent += `...and ${references.length - 5} more sources`;
       }
     }
+    
+    replyContent += `\n\n**API Balance:** $${response.meta.api_balance?.toFixed(3) || 'N/A'}`;
 
     if (replyContent.length > 2000 && !splitResponse) {
       let truncatePoint = 1950;
