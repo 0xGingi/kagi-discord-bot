@@ -2,9 +2,7 @@
 
 A Discord bot that integrates with the Kagi API to provide powerful search capabilities directly within Discord.
 
-
-![image](https://github.com/user-attachments/assets/9a235366-7c84-42d3-b795-93ca2f020c73)
-
+![image](https://github.com/user-attachments/assets/daa12b06-f3ae-4375-afb1-5ddd4714bdad)
 
 ## Features
 
