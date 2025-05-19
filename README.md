@@ -13,6 +13,7 @@ This bot provides slash commands to interact with Kagi API:
 3. `/newssearch` - Search for non-commercial news content using the Kagi News Enrichment API
 4. `/summarize` - Summarize URLs, text, or channel conversations using the Kagi Universal Summarizer API
 5. `/search` - Search the web using Kagi's premium Search API with full results (Currently Invite Only - Contact support@kagi.com for access)
+6. `/limits` - Check your remaining query limits
 
 ## Prerequisites
 
@@ -47,6 +48,33 @@ MESSAGE_CONTENT_ENABLED=true
 
 # Allow Commands in Direct Messages (set to 'true' to allow commands in DMs)
 ALLOW_DM_COMMANDS=false
+
+# Query Limits Configuration
+# Limits are per Discord user. Use -1 for unlimited.
+# Available periods: hourly, daily, weekly, monthly
+
+# Global query limit (applies to all commands combined)
+QUERY_LIMIT_GLOBAL=50
+QUERY_LIMIT_GLOBAL_PERIOD=daily
+
+# Command-specific limits (optional)
+QUERY_LIMIT_FASTGPT=20
+QUERY_LIMIT_FASTGPT_PERIOD=daily
+
+QUERY_LIMIT_WEBSEARCH=15
+QUERY_LIMIT_WEBSEARCH_PERIOD=daily
+
+QUERY_LIMIT_NEWSSEARCH=15
+QUERY_LIMIT_NEWSSEARCH_PERIOD=daily
+
+QUERY_LIMIT_SUMMARIZE=10
+QUERY_LIMIT_SUMMARIZE_PERIOD=daily
+
+QUERY_LIMIT_SEARCH=10
+QUERY_LIMIT_SEARCH_PERIOD=daily
+
+# Set to 'true' to persist query counts between bot restarts
+QUERY_LIMITS_PERSIST=true
 ```
 
 ### Using Bun (Local Development)
@@ -163,6 +191,24 @@ Available options:
   - `takeaway` (Default) - Bulleted list of key points
 - `target_language`: Various language options (EN, ES, FR, etc.)
 - `messages`: Number of recent messages to include in channel summary (1-100, default: 20)
+
+### Check Query Limits
+```
+/limits
+```
+Displays your remaining query counts for all commands, based on your server's configuration.
+
+## Query Limits
+
+The bot includes a configurable query limiting system to control API usage:
+
+- **Per-User Tracking**: All limits are applied per Discord user ID
+- **Global Limits**: Set a maximum number of queries across all commands
+- **Command-Specific Limits**: Set separate limits for each command
+- **Time Period Options**: Configure limits by hour, day, week, or month
+- **Persistence**: Optionally persist query records between bot restarts
+
+Configure limits in your `.env` file. Set any limit to `-1` for unlimited queries.
 
 ## Pricing
 

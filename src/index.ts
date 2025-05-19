@@ -2,6 +2,7 @@ import { Client, Events, GatewayIntentBits, Collection, REST, Routes } from 'dis
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import queryLimiter from './utils/queryLimiter';
 
 dotenv.config();
 
@@ -84,6 +85,31 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   try {
+    const userId = interaction.user.id;
+    const commandName = interaction.commandName;
+    
+    if (commandName !== 'limits') {
+      if (!queryLimiter.canMakeQuery(userId, commandName)) {
+        const cmdLimitInfo = queryLimiter.getCommandLimitInfo(commandName);
+        const globalLimitInfo = queryLimiter.getGlobalLimitInfo();
+        
+        let limitMessage = 'You have reached your query limit. ';
+        
+        if (cmdLimitInfo) {
+          limitMessage += `The limit for /${commandName} is ${cmdLimitInfo.limit} queries per ${cmdLimitInfo.period}. `;
+        }
+        
+        if (globalLimitInfo) {
+          limitMessage += `The global limit is ${globalLimitInfo.limit} queries per ${globalLimitInfo.period}.`;
+        }
+        
+        await interaction.reply({ content: limitMessage, ephemeral: true });
+        return;
+      }
+      
+      queryLimiter.recordQuery(userId, commandName);
+    }
+    
     await command.execute(interaction);
   } catch (error) {
     console.error(error);
