@@ -1,6 +1,11 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, TextChannel, ChannelType } from 'discord.js';
 import { querySummarizer, queryFastGPT } from '../utils/kagiApi';
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const ALLOW_MURIEL_ENGINE = process.env.ALLOW_MURIEL_ENGINE === 'true';
 
 function calculateTokenPrice(inputTokens: number, outputTokens: number, engine: string | undefined): { price: number; formattedPrice: string } {
   if (engine === 'muriel') {
@@ -19,6 +24,19 @@ function estimateTokenCount(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+function createEngineOptions() {
+  const engineChoices = [
+    { name: 'Cecil (Default) - Friendly, descriptive, fast', value: 'cecil' },
+    { name: 'Agnes - Formal, technical, analytical', value: 'agnes' }
+  ];
+  
+  if (ALLOW_MURIEL_ENGINE) {
+    engineChoices.push({ name: 'Muriel - Best-in-class, enterprise-grade', value: 'muriel' });
+  }
+  
+  return engineChoices;
+}
+
 export const data = new SlashCommandBuilder()
   .setName('summarize')
   .setDescription('Summarize content using the Kagi Universal Summarizer API')
@@ -35,11 +53,7 @@ export const data = new SlashCommandBuilder()
         option.setName('engine')
           .setDescription('Summarization engine to use')
           .setRequired(false)
-          .addChoices(
-            { name: 'Cecil (Default) - Friendly, descriptive, fast', value: 'cecil' },
-            { name: 'Agnes - Formal, technical, analytical', value: 'agnes' },
-            { name: 'Muriel - Best-in-class, enterprise-grade', value: 'muriel' }
-          )
+          .addChoices(...createEngineOptions())
       )
       .addStringOption(option =>
         option.setName('summary_type')
@@ -83,11 +97,7 @@ export const data = new SlashCommandBuilder()
         option.setName('engine')
           .setDescription('Summarization engine to use')
           .setRequired(false)
-          .addChoices(
-            { name: 'Cecil (Default) - Friendly, descriptive, fast', value: 'cecil' },
-            { name: 'Agnes - Formal, technical, analytical', value: 'agnes' },
-            { name: 'Muriel - Best-in-class, enterprise-grade', value: 'muriel' }
-          )
+          .addChoices(...createEngineOptions())
       )
       .addStringOption(option =>
         option.setName('summary_type')
@@ -133,11 +143,7 @@ export const data = new SlashCommandBuilder()
         option.setName('engine')
           .setDescription('Summarization engine to use')
           .setRequired(false)
-          .addChoices(
-            { name: 'Cecil (Default) - Friendly, descriptive, fast', value: 'cecil' },
-            { name: 'Agnes - Formal, technical, analytical', value: 'agnes' },
-            { name: 'Muriel - Best-in-class, enterprise-grade', value: 'muriel' }
-          )
+          .addChoices(...createEngineOptions())
       )
       .addStringOption(option =>
         option.setName('summary_type')
@@ -173,6 +179,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const summaryType = interaction.options.getString('summary_type') || 'takeaway';
     const targetLanguage = interaction.options.getString('target_language') || undefined;
     const cache = interaction.options.getBoolean('cache') ?? undefined;
+    
+    if (engine === 'muriel' && !ALLOW_MURIEL_ENGINE) {
+      await interaction.editReply('The Muriel engine is disabled by the bot administrator due to cost concerns. Please use Cecil or Agnes instead.');
+      return;
+    }
 
     let params: any = {
       engine,

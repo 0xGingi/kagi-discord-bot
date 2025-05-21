@@ -49,6 +49,9 @@ MESSAGE_CONTENT_ENABLED=true
 # Allow Commands in Direct Messages (set to 'true' to allow commands in DMs)
 ALLOW_DM_COMMANDS=false
 
+# Allow the expensive Muriel engine ($1 per summary)
+ALLOW_MURIEL_ENGINE=false
+
 # Query Limits Configuration
 # Limits are per Discord user. Use -1 for unlimited.
 # Available periods: hourly, daily, weekly, monthly
