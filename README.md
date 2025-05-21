@@ -82,23 +82,14 @@ QUERY_LIMIT_SEARCH_PERIOD=daily
 # Set to 'true' to persist query counts between bot restarts
 QUERY_LIMITS_PERSIST=true
 ```
-
-### Using Bun (Local Development)
-
-1. Install dependencies:
-```bash
-bun install
-```
-
-2. Start the bot:
-```bash
-bun start
-```
-
 ### Using Docker
+
+#### Option 1: Build and run using docker-compose
 
 1. Build and start the Docker container:
 ```bash
+git clone https://github.com/0xgingi/kagi-discord-bot
+cd kagi-discord-bot
 docker compose up -d
 ```
 
@@ -115,6 +106,32 @@ docker compose logs -f
 To stop the container:
 ```bash
 docker compose down
+```
+
+#### Option 2: Pull from Docker Hub
+
+You can use the pre-built Docker image from Docker Hub:
+
+1. Create a `.env` file as described above
+2. Create the `data/` directory 
+3. Create the `data/query_record.json` file
+4. Run the container:
+```bash
+docker run -d --name kagi-discord-bot --restart unless-stopped --env-file .env -v $(pwd)/data:/app/data 0xgingi/kagi-discord-bot:latest
+```
+
+### Using Bun (Local Development)
+
+1. Clone and Install dependencies:
+```bash
+git clone https://github.com/0xgingi/kagi-discord-bot
+cd kagi-discord-bot
+bun install
+```
+
+2. Start the bot:
+```bash
+bun start
 ```
 
 ## Adding the Bot to Your Server

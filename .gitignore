@@ -175,3 +175,4 @@ dist
 .DS_Store
 data/query_records.json
 data/
+update-docker.sh
