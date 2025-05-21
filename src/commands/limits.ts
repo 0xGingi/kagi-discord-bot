@@ -9,6 +9,21 @@ export async function execute(interaction: any) {
   const userId = interaction.user.id;
   const commandNames = ['fastgpt', 'websearch', 'newssearch', 'summarize', 'search'];
   
+  if (queryLimiter.isUnlimitedUser(userId)) {
+    await interaction.reply({
+      embeds: [{
+        title: 'Your Query Limits',
+        description: '**You have unlimited queries!**\n\nYou are whitelisted as an unlimited user and can use all commands without any rate limits.',
+        color: 0x00FF00,
+        footer: {
+          text: 'Unlimited user status'
+        }
+      }],
+      ephemeral: true
+    });
+    return;
+  }
+  
   const globalLimitInfo = queryLimiter.getGlobalLimitInfo();
   let description = '';
   

@@ -52,6 +52,9 @@ ALLOW_MURIEL_ENGINE=false
 # Create threads for results when needing to send more than one message (set to 'true' to automatically create threads)
 CREATE_THREADS_FOR_RESULTS=true
 
+# Comma-separated list of Discord user IDs that have unlimited queries (bypass all limits)
+UNLIMITED_QUERY_USERIDS=
+
 # Query Limits Configuration
 # Limits are per Discord user. Use -1 for unlimited.
 # Available periods: hourly, daily, weekly, monthly

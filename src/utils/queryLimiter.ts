@@ -37,17 +37,24 @@ class QueryLimiter {
   private limits: QueryLimits;
   private dataFile: string;
   private useFileStorage: boolean;
+  private unlimitedUserIds: Set<string>;
 
   constructor() {
     this.limits = this.parseLimitsFromEnv();
     this.useFileStorage = process.env.QUERY_LIMITS_PERSIST === 'true';
     this.dataFile = path.join(__dirname, '../../data/query_records.json');
+    this.unlimitedUserIds = this.parseUnlimitedUserIds();
     
     if (this.useFileStorage) {
       this.ensureDataDirectory();
       this.loadQueryRecords();
       setInterval(() => this.cleanupOldRecords(), 60 * 60 * 1000);
     }
+  }
+
+  private parseUnlimitedUserIds(): Set<string> {
+    const userIdsString = process.env.UNLIMITED_QUERY_USERIDS || '';
+    return new Set(userIdsString.split(',').map(id => id.trim()).filter(id => id !== ''));
   }
 
   private ensureDataDirectory() {
@@ -125,6 +132,10 @@ class QueryLimiter {
   }
 
   public canMakeQuery(userId: string, command: string): boolean {
+    if (this.unlimitedUserIds.has(userId)) {
+      return true;
+    }
+    
     const cmdLimit = this.limits.commands[command];
     if (cmdLimit && cmdLimit.limit !== -1) {
       const cmdRecords = this.getRecordsInPeriod(userId, command, cmdLimit.period);
@@ -144,6 +155,10 @@ class QueryLimiter {
   }
 
   public recordQuery(userId: string, command: string): void {
+    if (this.unlimitedUserIds.has(userId)) {
+      return;
+    }
+    
     const record: QueryRecord = {
       userId,
       command,
@@ -155,6 +170,13 @@ class QueryLimiter {
   }
 
   public getRemainingQueries(userId: string, command: string): { command: number, global: number } {
+    if (this.unlimitedUserIds.has(userId)) {
+      return {
+        command: -1,
+        global: -1
+      };
+    }
+    
     let commandRemaining = -1;
     let globalRemaining = -1;
     
@@ -196,6 +218,10 @@ class QueryLimiter {
       limit: this.limits.global.limit,
       period: this.limits.global.period,
     };
+  }
+  
+  public isUnlimitedUser(userId: string): boolean {
+    return this.unlimitedUserIds.has(userId);
   }
 }
 
