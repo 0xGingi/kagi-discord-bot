@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, TextChannel, ChannelType } from 'discord.js';
 import { querySummarizer, queryFastGPT } from '../utils/kagiApi';
+import { createThreadForResults, shouldCreateThread, sendMessageToThread } from '../utils/threadManager';
 import axios from 'axios';
 import dotenv from 'dotenv';
 
@@ -235,7 +236,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       
       embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
 
-      await interaction.editReply({ embeds: [embed] });
+      const thread = shouldCreateThread(JSON.stringify(embed).length) 
+        ? await createThreadForResults(interaction, `URL: ${url}`, 'summarize')
+        : null;
+
+      if (thread) {
+        await interaction.editReply({ 
+          content: `URL summary available in the thread below.` 
+        });
+        
+        await sendMessageToThread(thread, { embeds: [embed] });
+      } else {
+        await interaction.editReply({ embeds: [embed] });
+      }
     } else if (subcommand === 'text') {
       const text = interaction.options.getString('text');
       if (!text) {
@@ -278,7 +291,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       
       embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
 
-      await interaction.editReply({ embeds: [embed] });
+      const thread = shouldCreateThread(JSON.stringify(embed).length) 
+        ? await createThreadForResults(interaction, text.substring(0, 50) + (text.length > 50 ? '...' : ''), 'summarize')
+        : null;
+
+      if (thread) {
+        await interaction.editReply({ 
+          content: `Text summary available in the thread below.` 
+        });
+        
+        await sendMessageToThread(thread, { embeds: [embed] });
+      } else {
+        await interaction.editReply({ embeds: [embed] });
+      }
     } else if (subcommand === 'channel') {
       if (process.env.MESSAGE_CONTENT_ENABLED !== 'true') {
         await interaction.editReply('The channel summarizer is disabled because the Message Content Intent is not enabled. Please contact the bot owner to enable it.');
@@ -351,7 +376,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         
         embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
         
-        await interaction.editReply({ embeds: [embed] });
+        const thread = shouldCreateThread(JSON.stringify(embed).length) 
+          ? await createThreadForResults(interaction, `Channel summary (${formattedMessages.length} messages)`, 'summarize')
+          : null;
+
+        if (thread) {
+          await interaction.editReply({ 
+            content: `Channel summary available in the thread below.` 
+          });
+          
+          await sendMessageToThread(thread, { embeds: [embed] });
+        } else {
+          await interaction.editReply({ embeds: [embed] });
+        }
       } else {
         const query = `Summarize the following chat conversation:\n\n${messageText}`;
         const response = await queryFastGPT({
@@ -379,7 +416,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         
         embed.setFooter({ text: `API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
         
-        await interaction.editReply({ embeds: [embed] });
+        const thread = shouldCreateThread(JSON.stringify(embed).length) 
+          ? await createThreadForResults(interaction, `Channel summary (${formattedMessages.length} messages)`, 'summarize')
+          : null;
+
+        if (thread) {
+          await interaction.editReply({ 
+            content: `Channel summary available in the thread below.` 
+          });
+          
+          await sendMessageToThread(thread, { embeds: [embed] });
+        } else {
+          await interaction.editReply({ embeds: [embed] });
+        }
       }
     }
   } catch (error: unknown) {

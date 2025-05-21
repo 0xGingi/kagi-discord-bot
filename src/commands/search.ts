@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { querySearchAPI } from '../utils/kagiApi';
+import { createThreadForResults, shouldCreateThread, sendMessageToThread } from '../utils/threadManager';
 import axios from 'axios';
 
 export const data = new SlashCommandBuilder()
@@ -76,7 +77,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
     }
 
-    await interaction.editReply({ embeds: [embed] });
+    const thread = shouldCreateThread(JSON.stringify(embed).length) 
+      ? await createThreadForResults(interaction, query, 'search')
+      : null;
+
+    if (thread) {
+      await interaction.editReply({ 
+        content: `Search results for: **${query}** are available in the thread below.` 
+      });
+      
+      await sendMessageToThread(thread, { embeds: [embed] });
+    } else {
+      await interaction.editReply({ embeds: [embed] });
+    }
   } catch (error: unknown) {
     console.error('Error in search command:', error);
     
