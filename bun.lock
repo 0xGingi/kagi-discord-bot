@@ -5,7 +5,7 @@
       "name": "kagi-discord-bot",
       "dependencies": {
         "axios": "^1.9.0",
-        "discord.js": "^14.19.2",
+        "discord.js": "^14.19.3",
         "dotenv": "^16.5.0",
       },
       "peerDependencies": {

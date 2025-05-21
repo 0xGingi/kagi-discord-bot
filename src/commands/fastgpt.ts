@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { queryFastGPT } from '../utils/kagiApi';
-import { createThreadForResults, shouldCreateThread, sendMessageToThread } from '../utils/threadManager';
+import { createThreadForResults, sendMessageToThread } from '../utils/threadManager';
 import axios from 'axios';
 
 function convertHtmlToMarkdown(html: string): string {
@@ -31,6 +31,39 @@ function convertHtmlToMarkdown(html: string): string {
     .replace(/&#8212;/g, '—')
     .replace(/&#160;/g, ' ')
     .replace(/\n{3,}/g, '\n\n');
+}
+
+function splitDiscordMessage(message: string, maxLength: number = 1900): string[] {
+  if (message.length <= maxLength) {
+    return [message];
+  }
+
+  const chunks: string[] = [];
+  let currentChunk = "";
+  
+  if (message.includes("```")) {
+    return [message];
+  }
+  
+  const lines = message.split("\n");
+  
+  for (const line of lines) {
+    if (currentChunk.length + line.length + 1 > maxLength) {
+      chunks.push(currentChunk);
+      currentChunk = line;
+    } else {
+      if (currentChunk.length > 0) {
+        currentChunk += "\n";
+      }
+      currentChunk += line;
+    }
+  }
+  
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+  
+  return chunks;
 }
 
 export const data = new SlashCommandBuilder()
@@ -85,23 +118,46 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     replyContent += `\n\n**API Balance:** $${response.meta.api_balance?.toFixed(3) || 'N/A'}`;
 
-    const thread = shouldCreateThread(replyContent.length) 
-      ? await createThreadForResults(interaction, query, 'fastgpt')
-      : null;
-
-    if (thread) {
-      await interaction.editReply(`Answer to "${query}" is available in the thread below.`);
+    // Check conditions for thread creation:
+    // 1. Response contains code blocks
+    // 2. Response is very long
+    // 3. Thread creation is enabled in config
+    const hasCodeBlocks = replyContent.includes("```");
+    const isLongResponse = replyContent.length > 1500;
+    const createThreads = process.env.CREATE_THREADS_FOR_RESULTS === 'true';
+    
+    // Use thread if appropriate
+    if (createThreads && (hasCodeBlocks || isLongResponse)) {
+      const thread = await createThreadForResults(interaction, query, 'fastgpt');
       
-      await sendMessageToThread(thread, replyContent);
-    } else if (replyContent.length > 2000) {
-      let truncatePoint = 1950;
-      while (truncatePoint > 1900 && !/\s/.test(replyContent[truncatePoint])) {
-        truncatePoint--;
+      if (thread) {
+        // If thread creation succeeded, send reply directing to thread
+        await interaction.editReply(`Answer to "${query}" is available in the thread below.`);
+        
+        // Send message to thread with full content
+        await sendMessageToThread(thread, replyContent);
+        return;
       }
-      replyContent = replyContent.substring(0, truncatePoint) + '... (response truncated due to length)';
-      await interaction.editReply(replyContent);
+      // If thread creation failed, fall through to normal reply handling
+    }
+    
+    // For responses that fit in a single message, or if thread creation failed/disabled
+    const messageChunks = splitDiscordMessage(replyContent);
+    
+    if (messageChunks.length === 1 && messageChunks[0].length <= 2000) {
+      // Short message, just send it
+      await interaction.editReply(messageChunks[0]);
+    } else if (messageChunks.length > 1) {
+      // Multiple chunks needed, send as separate messages
+      await interaction.editReply(messageChunks[0]);
+      
+      for (let i = 1; i < messageChunks.length; i++) {
+        await interaction.followUp(messageChunks[i]);
+      }
     } else {
-      await interaction.editReply(replyContent);
+      // Message too long and couldn't be split nicely, truncate
+      const truncated = replyContent.substring(0, 1950) + "... (response truncated due to length)";
+      await interaction.editReply(truncated);
     }
   } catch (error: unknown) {
     console.error('Error in fastgpt command:', error);

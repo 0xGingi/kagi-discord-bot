@@ -77,7 +77,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
     }
 
-    const thread = shouldCreateThread(JSON.stringify(embed).length) 
+    const embedFields = embed.data.fields || [];
+    let totalContentLength = 0;
+    
+    embedFields.forEach(field => {
+      if (field.value && field.name !== 'Related Searches') {
+        totalContentLength += field.value.length;
+      }
+    });
+    
+    const hasRelatedSearches = relatedSearches && relatedSearches.list && relatedSearches.list.length > 0;
+    
+    let relatedSearchesLength = 0;
+    if (hasRelatedSearches && relatedSearches.list) {
+      relatedSearchesLength = relatedSearches.list.join(", ").length;
+    }
+    
+    const shouldUseThread = (totalContentLength + relatedSearchesLength) > 2000;
+    
+    const thread = shouldUseThread && process.env.CREATE_THREADS_FOR_RESULTS === 'true'
       ? await createThreadForResults(interaction, query, 'search')
       : null;
 

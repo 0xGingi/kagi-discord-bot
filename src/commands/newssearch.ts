@@ -66,7 +66,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       embed.setFooter({ text: `Showing ${maxResults} of ${searchResults.length} results | API Balance: $${response.meta.api_balance?.toFixed(3) || 'N/A'}` });
     }
 
-    const thread = shouldCreateThread(JSON.stringify(embed).length) 
+    const embedFields = embed.data.fields || [];
+    let totalContentLength = 0;
+    
+    embedFields.forEach(field => {
+      if (field.value) totalContentLength += field.value.length;
+    });
+    
+    const shouldUseThread = totalContentLength > 2000;
+    
+    const thread = shouldUseThread && process.env.CREATE_THREADS_FOR_RESULTS === 'true'
       ? await createThreadForResults(interaction, query, 'newssearch')
       : null;
 

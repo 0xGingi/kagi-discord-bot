@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const THREAD_CREATION_ENABLED = process.env.CREATE_THREADS_FOR_RESULTS === 'true';
+const MAX_DISCORD_MESSAGE_LENGTH = 2000;
 
 export async function createThreadForResults(
   interaction: ChatInputCommandInteraction,
@@ -92,5 +93,7 @@ function splitMessageIntoChunks(message: string, maxLength: number): string[] {
 }
 
 export function shouldCreateThread(contentLength: number): boolean {
-  return THREAD_CREATION_ENABLED && contentLength > 1000;
+  // Only create threads when the content would exceed Discord's message length limit
+  // This means we'd need multiple messages, making a thread worthwhile
+  return THREAD_CREATION_ENABLED && contentLength > MAX_DISCORD_MESSAGE_LENGTH;
 } 
