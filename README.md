@@ -52,7 +52,7 @@ ALLOW_DM_COMMANDS=false
 # Allow the expensive Muriel engine ($1 per summary)
 ALLOW_MURIEL_ENGINE=false
 
-# Create threads for search results (set to 'true' to automatically create threads)
+# Create threads for results when needing to send more than one message (set to 'true' to automatically create threads)
 CREATE_THREADS_FOR_RESULTS=true
 
 # Query Limits Configuration
