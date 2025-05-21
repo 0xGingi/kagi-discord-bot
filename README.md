@@ -21,12 +21,7 @@ This bot provides slash commands to interact with Kagi API:
 
 - [Discord Bot Token](https://discord.com/developers/applications)
 - [Kagi API Key](https://kagi.com/settings?p=api)
-
-And either:
-- [Bun](https://bun.sh/) - JavaScript runtime and package manager
-
-Or:
-- [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker](https://www.docker.com/get-started) and optionally [Docker Compose](https://docs.docker.com/compose/install/)
 
 ## Setup
 
@@ -97,6 +92,7 @@ docker compose up -d
 
 To rebuild the container after code changes:
 ```bash
+git pull
 docker compose up -d --build
 ```
 
