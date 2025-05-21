@@ -164,12 +164,11 @@ Once the bot is added to your server, you can use the following slash commands:
 
 ### FastGPT
 ```
-/fastgpt query: Your question here [cache: Optional] [split_response: Optional]
+/fastgpt query: Your question here [cache: Optional]
 ```
 
 Available options:
 - `cache`: Whether to allow cached responses (default: true)
-- `split_response`: Split long responses into multiple messages instead of truncating (default: false)
 
 ### Web Search
 ```
