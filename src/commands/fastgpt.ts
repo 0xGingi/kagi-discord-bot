@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { queryFastGPT } from '../utils/kagiApi';
+import { createThreadForResults, shouldCreateThread, sendMessageToThread } from '../utils/threadManager';
 import axios from 'axios';
 
 function convertHtmlToMarkdown(html: string): string {
@@ -47,7 +48,7 @@ export const data = new SlashCommandBuilder()
   )
   .addBooleanOption(option =>
     option.setName('split_response')
-      .setDescription('Split long responses into multiple messages (default: false)')
+      .setDescription('Split long responses into multiple messages instead of using threads (default: false)')
       .setRequired(false)
   );
 
@@ -73,7 +74,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const { output, references } = response.data;
     
-    // Convert HTML to Markdown
     const formattedOutput = convertHtmlToMarkdown(output);
 
     let replyContent = `**Query:** ${query}\n\n${formattedOutput}`;
@@ -91,7 +91,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     replyContent += `\n\n**API Balance:** $${response.meta.api_balance?.toFixed(3) || 'N/A'}`;
 
-    if (replyContent.length > 2000 && !splitResponse) {
+    const shouldUseThread = !splitResponse && shouldCreateThread(replyContent.length);
+    const thread = shouldUseThread ? await createThreadForResults(interaction, query, 'fastgpt') : null;
+
+    if (thread) {
+      await interaction.editReply(`Answer to "${query}" is available in the thread below.`);
+      
+      await sendMessageToThread(thread, replyContent);
+    } else if (replyContent.length > 2000 && !splitResponse) {
       let truncatePoint = 1950;
       while (truncatePoint > 1900 && !/\s/.test(replyContent[truncatePoint])) {
         truncatePoint--;
