@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import queryLimiter from './utils/queryLimiter';
+import logger from './utils/logger';
 
 dotenv.config();
 
@@ -28,70 +29,140 @@ declare module 'discord.js' {
 client.commands = new Collection();
 
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.ts'));
+let commandFiles: string[] = [];
+
+try {
+  commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.ts'));
+  logger.info(`Found ${commandFiles.length} command files`, { commandFiles });
+} catch (error) {
+  logger.error('Failed to read commands directory', error, { commandsPath });
+  process.exit(1);
+}
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  
-  if ('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command);
-  } else {
-    console.log(`[WARNING] The command at ${filePath} is missing required "data" or "execute" property.`);
+  try {
+    const command = require(filePath);
+    
+    if ('data' in command && 'execute' in command) {
+      client.commands.set(command.data.name, command);
+      logger.info(`Loaded command: ${command.data.name}`, { file, commandName: command.data.name });
+    } else {
+      logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`, { file });
+    }
+  } catch (error) {
+    logger.error(`Failed to load command from ${file}`, error, { file, filePath });
   }
 }
 
 const registerCommands = async () => {
   const commands = [];
+  logger.info('Starting command registration process');
+
   for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-    commands.push(command.data.toJSON());
+    try {
+      const command = require(path.join(commandsPath, file));
+      if ('data' in command && typeof command.data.toJSON === 'function') {
+        commands.push(command.data.toJSON());
+        logger.debug(`Added command to registration list: ${command.data.name}`, { file });
+      }
+    } catch (error) {
+      logger.error(`Failed to process command for registration: ${file}`, error, { file });
+    }
   }
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
 
   try {
-    console.log('Started refreshing application (/) commands.');
+    logger.info(`Registering ${commands.length} application commands`);
 
     await rest.put(
       Routes.applicationCommands(process.env.CLIENT_ID!),
       { body: commands },
     );
 
-    console.log('Successfully reloaded application (/) commands.');
+    logger.info('Successfully registered all application commands');
   } catch (error) {
-    console.error(error);
+    logger.error('Failed to register application commands', error, { 
+      commandCount: commands.length,
+      clientId: process.env.CLIENT_ID?.substring(0, 8) + '...'
+    });
   }
 };
 
-client.once(Events.ClientReady, readyClient => {
-  console.log(`Ready! Logged in as ${readyClient.user.tag}`);
-  registerCommands();
+client.once(Events.ClientReady, async readyClient => {
+  logger.info(`Discord bot ready! Logged in as ${readyClient.user.tag}`, {
+    userId: readyClient.user.id,
+    username: readyClient.user.username,
+    guildCount: readyClient.guilds.cache.size
+  });
+  
+  try {
+    await registerCommands();
+  } catch (error) {
+    logger.error('Failed to register commands during bot startup', error);
+  }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   
+  const startTime = Date.now();
+  const userId = interaction.user.id;
+  const commandName = interaction.commandName;
+  const guildId = interaction.guildId;
+  
+  logger.commandStart(commandName, userId, guildId || undefined, {
+    channelId: interaction.channelId,
+    options: interaction.options.data.map(option => ({
+      name: option.name,
+      type: option.type,
+      value: typeof option.value === 'string' && option.value.length > 100 
+        ? option.value.substring(0, 100) + '...' 
+        : option.value
+    }))
+  });
+  
+  // Check DM restrictions
   if (!interaction.guild && process.env.ALLOW_DM_COMMANDS !== 'true') {
-    await interaction.reply({ content: 'Commands cannot be used in Direct Messages.', ephemeral: true });
+    logger.warn(`Command ${commandName} attempted in DMs by user ${userId}`);
+    try {
+      await interaction.reply({ content: 'Commands cannot be used in Direct Messages.', ephemeral: true });
+    } catch (error) {
+      logger.error(`Failed to send DM restriction message for command ${commandName}`, error, { userId });
+    }
     return;
   }
 
-  const command = client.commands.get(interaction.commandName);
+  const command = client.commands.get(commandName);
 
   if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
+    logger.error(`No command matching ${commandName} was found`, undefined, { 
+      commandName, 
+      userId,
+      availableCommands: Array.from(client.commands.keys())
+    });
+    try {
+      await interaction.reply({ content: 'This command is not available.', ephemeral: true });
+    } catch (error) {
+      logger.error(`Failed to send command not found message`, error, { commandName, userId });
+    }
     return;
   }
 
   try {
-    const userId = interaction.user.id;
-    const commandName = interaction.commandName;
-    
+    // Query limit check (skip for limits command)
     if (commandName !== 'limits') {
       if (!queryLimiter.canMakeQuery(userId, commandName)) {
         const cmdLimitInfo = queryLimiter.getCommandLimitInfo(commandName);
         const globalLimitInfo = queryLimiter.getGlobalLimitInfo();
+        
+        logger.warn(`Query limit hit for user ${userId} on command ${commandName}`, {
+          userId,
+          commandName,
+          commandLimit: cmdLimitInfo,
+          globalLimit: globalLimitInfo
+        });
         
         let limitMessage = 'You have reached your query limit. ';
         
@@ -110,15 +181,78 @@ client.on(Events.InteractionCreate, async interaction => {
       queryLimiter.recordQuery(userId, commandName);
     }
     
+    // Execute command
     await command.execute(interaction);
+    
+    const duration = Date.now() - startTime;
+    logger.commandSuccess(commandName, userId, duration);
+    
   } catch (error) {
-    console.error(error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'There was an error executing this command!', ephemeral: true });
-    } else {
-      await interaction.reply({ content: 'There was an error executing this command!', ephemeral: true });
+    const duration = Date.now() - startTime;
+    logger.commandError(commandName, userId, error, {
+      duration,
+      guildId,
+      channelId: interaction.channelId,
+      replied: interaction.replied,
+      deferred: interaction.deferred
+    });
+    
+    // Send error response to user
+    try {
+      const errorMessage = 'There was an error executing this command! The error has been logged for investigation.';
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: errorMessage, ephemeral: true });
+      } else {
+        await interaction.reply({ content: errorMessage, ephemeral: true });
+      }
+    } catch (followUpError) {
+      logger.error(`Failed to send error message to user for command ${commandName}`, followUpError, { 
+        userId, 
+        originalError: error 
+      });
     }
   }
 });
 
-client.login(process.env.DISCORD_TOKEN); 
+// Add error handlers for the Discord client
+client.on(Events.Error, error => {
+  logger.error('Discord client error', error);
+});
+
+client.on(Events.Warn, warning => {
+  logger.warn('Discord client warning', { warning });
+});
+
+// Handle uncaught exceptions and unhandled rejections
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at Promise', reason, { promise: promise.toString() });
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  logger.info('Received SIGINT, shutting down gracefully');
+  client.destroy();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('Received SIGTERM, shutting down gracefully');
+  client.destroy();
+  process.exit(0);
+});
+
+// Login with error handling
+logger.info('Starting Discord bot login process');
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+  logger.error('Failed to login to Discord', error, {
+    tokenProvided: !!process.env.DISCORD_TOKEN,
+    tokenLength: process.env.DISCORD_TOKEN?.length
+  });
+  process.exit(1);
+}); 

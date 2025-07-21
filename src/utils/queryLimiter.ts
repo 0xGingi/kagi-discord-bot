@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import logger from './logger';
 
 dotenv.config();
 
@@ -40,15 +41,29 @@ class QueryLimiter {
   private unlimitedUserIds: Set<string>;
 
   constructor() {
-    this.limits = this.parseLimitsFromEnv();
-    this.useFileStorage = process.env.QUERY_LIMITS_PERSIST === 'true';
-    this.dataFile = path.join(__dirname, '../../data/query_records.json');
-    this.unlimitedUserIds = this.parseUnlimitedUserIds();
-    
-    if (this.useFileStorage) {
-      this.ensureDataDirectory();
-      this.loadQueryRecords();
-      setInterval(() => this.cleanupOldRecords(), 60 * 60 * 1000);
+    try {
+      this.limits = this.parseLimitsFromEnv();
+      this.useFileStorage = process.env.QUERY_LIMITS_PERSIST === 'true';
+      this.dataFile = path.join(__dirname, '../../data/query_records.json');
+      this.unlimitedUserIds = this.parseUnlimitedUserIds();
+      
+      logger.info('QueryLimiter initialized', {
+        fileStorage: this.useFileStorage,
+        globalLimit: this.limits.global.limit,
+        globalPeriod: this.limits.global.period,
+        commandLimits: Object.keys(this.limits.commands).length,
+        unlimitedUsers: this.unlimitedUserIds.size
+      });
+      
+      if (this.useFileStorage) {
+        this.ensureDataDirectory();
+        this.loadQueryRecords();
+        setInterval(() => this.cleanupOldRecords(), 60 * 60 * 1000);
+        logger.debug('File storage enabled for query records', { dataFile: this.dataFile });
+      }
+    } catch (error) {
+      logger.error('Failed to initialize QueryLimiter', error);
+      throw error;
     }
   }
 
@@ -58,9 +73,15 @@ class QueryLimiter {
   }
 
   private ensureDataDirectory() {
-    const dataDir = path.dirname(this.dataFile);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    try {
+      const dataDir = path.dirname(this.dataFile);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        logger.info('Created data directory for query records', { dataDir });
+      }
+    } catch (error) {
+      logger.error('Failed to create data directory', error, { dataFile: this.dataFile });
+      throw error;
     }
   }
 
@@ -69,9 +90,16 @@ class QueryLimiter {
       if (fs.existsSync(this.dataFile)) {
         const data = fs.readFileSync(this.dataFile, 'utf8');
         this.queryRecords = JSON.parse(data);
+        logger.info('Loaded query records from file', { 
+          recordCount: this.queryRecords.length,
+          dataFile: this.dataFile 
+        });
+      } else {
+        logger.debug('No existing query records file found, starting fresh');
+        this.queryRecords = [];
       }
     } catch (error) {
-      console.error('Error loading query records:', error);
+      logger.error('Error loading query records, starting with empty records', error, { dataFile: this.dataFile });
       this.queryRecords = [];
     }
   }
@@ -81,8 +109,14 @@ class QueryLimiter {
     
     try {
       fs.writeFileSync(this.dataFile, JSON.stringify(this.queryRecords), 'utf8');
+      logger.debug('Saved query records to file', { 
+        recordCount: this.queryRecords.length 
+      });
     } catch (error) {
-      console.error('Error saving query records:', error);
+      logger.error('Error saving query records', error, { 
+        dataFile: this.dataFile,
+        recordCount: this.queryRecords.length 
+      });
     }
   }
 
@@ -115,7 +149,18 @@ class QueryLimiter {
   private cleanupOldRecords() {
     const now = Date.now();
     const oldestToKeep = now - TIME_PERIODS.monthly;
+    const originalCount = this.queryRecords.length;
+    
     this.queryRecords = this.queryRecords.filter(record => record.timestamp >= oldestToKeep);
+    
+    const cleanedCount = originalCount - this.queryRecords.length;
+    if (cleanedCount > 0) {
+      logger.info('Cleaned up old query records', { 
+        removedRecords: cleanedCount,
+        remainingRecords: this.queryRecords.length
+      });
+    }
+    
     this.saveQueryRecords();
   }
 
@@ -132,41 +177,56 @@ class QueryLimiter {
   }
 
   public canMakeQuery(userId: string, command: string): boolean {
-    if (this.unlimitedUserIds.has(userId)) {
+    try {
+      if (this.unlimitedUserIds.has(userId)) {
+        logger.debug('User has unlimited queries', { userId, command });
+        return true;
+      }
+      
+      // Check command-specific limit
+      const cmdLimit = this.limits.commands[command];
+      if (cmdLimit && cmdLimit.limit !== -1) {
+        const cmdRecords = this.getRecordsInPeriod(userId, command, cmdLimit.period);
+        if (cmdRecords.length >= cmdLimit.limit) {
+          logger.queryLimitHit(userId, command, 'command');
+          return false;
+        }
+      }
+      
+      // Check global limit
+      if (this.limits.global.limit !== -1) {
+        const globalRecords = this.getRecordsInPeriod(userId, null, this.limits.global.period);
+        if (globalRecords.length >= this.limits.global.limit) {
+          logger.queryLimitHit(userId, command, 'global');
+          return false;
+        }
+      }
+      
       return true;
+    } catch (error) {
+      logger.error('Error checking query limits, allowing query', error, { userId, command });
+      return true; // Fail open - don't block users due to limiter errors
     }
-    
-    const cmdLimit = this.limits.commands[command];
-    if (cmdLimit && cmdLimit.limit !== -1) {
-      const cmdRecords = this.getRecordsInPeriod(userId, command, cmdLimit.period);
-      if (cmdRecords.length >= cmdLimit.limit) {
-        return false;
-      }
-    }
-    
-    if (this.limits.global.limit !== -1) {
-      const globalRecords = this.getRecordsInPeriod(userId, null, this.limits.global.period);
-      if (globalRecords.length >= this.limits.global.limit) {
-        return false;
-      }
-    }
-    
-    return true;
   }
 
   public recordQuery(userId: string, command: string): void {
-    if (this.unlimitedUserIds.has(userId)) {
-      return;
+    try {
+      if (this.unlimitedUserIds.has(userId)) {
+        return;
+      }
+      
+      const record: QueryRecord = {
+        userId,
+        command,
+        timestamp: Date.now(),
+      };
+      
+      this.queryRecords.push(record);
+      logger.queryRecorded(userId, command);
+      this.saveQueryRecords();
+    } catch (error) {
+      logger.error('Error recording query', error, { userId, command });
     }
-    
-    const record: QueryRecord = {
-      userId,
-      command,
-      timestamp: Date.now(),
-    };
-    
-    this.queryRecords.push(record);
-    this.saveQueryRecords();
   }
 
   public getRemainingQueries(userId: string, command: string): { command: number, global: number } {

@@ -1,5 +1,6 @@
 import { ChatInputCommandInteraction, ThreadChannel, TextChannel } from 'discord.js';
 import dotenv from 'dotenv';
+import logger from './logger';
 
 dotenv.config();
 
@@ -11,11 +12,40 @@ export async function createThreadForResults(
   query: string,
   commandName: string
 ): Promise<ThreadChannel | null> {
-  if (!THREAD_CREATION_ENABLED || !interaction.channel || !interaction.guildId) {
+  const userId = interaction.user.id;
+  const guildId = interaction.guildId;
+  const channelId = interaction.channelId;
+  
+  logger.debug('Attempting to create thread', {
+    userId,
+    guildId,
+    channelId,
+    commandName,
+    threadCreationEnabled: THREAD_CREATION_ENABLED,
+    queryLength: query.length
+  });
+
+  if (!THREAD_CREATION_ENABLED) {
+    logger.debug('Thread creation disabled by configuration', { userId, commandName });
+    return null;
+  }
+  
+  if (!interaction.channel || !interaction.guildId) {
+    logger.warn('Cannot create thread: missing channel or guild', { 
+      userId, 
+      commandName,
+      hasChannel: !!interaction.channel,
+      hasGuild: !!interaction.guildId 
+    });
     return null;
   }
   
   if (!(interaction.channel instanceof TextChannel)) {
+    logger.warn('Cannot create thread: channel is not a text channel', { 
+      userId, 
+      commandName,
+      channelType: interaction.channel.type 
+    });
     return null;
   }
 
@@ -33,30 +63,97 @@ export async function createThreadForResults(
       reason: `${capitalizedCommand} results for query: ${query}`
     });
 
+    logger.info('Thread created successfully', {
+      userId,
+      commandName,
+      threadId: thread.id,
+      threadName,
+      guildId,
+      channelId
+    });
+
     return thread;
   } catch (error) {
-    console.error(`Error creating thread: ${error}`);
+    logger.error('Error creating thread', error, {
+      userId,
+      commandName,
+      guildId,
+      channelId,
+      queryLength: query.length
+    });
     return null;
   }
 }
 
 export async function sendMessageToThread(thread: ThreadChannel, content: string | { embeds: any[] }): Promise<void> {
-  if (typeof content !== 'string') {
-    await thread.send(content);
-    return;
-  }
+  const threadId = thread.id;
+  const guildId = thread.guildId;
+  const isStringContent = typeof content === 'string';
   
-  const MAX_MESSAGE_LENGTH = 1900;
-  
-  if (content.length <= MAX_MESSAGE_LENGTH) {
-    await thread.send(content);
-    return;
-  }
-  
-  const chunks = splitMessageIntoChunks(content, MAX_MESSAGE_LENGTH);
-  
-  for (const chunk of chunks) {
-    await thread.send(chunk);
+  logger.debug('Sending message to thread', {
+    threadId,
+    guildId,
+    contentType: isStringContent ? 'string' : 'embed',
+    contentLength: isStringContent ? (content as string).length : undefined
+  });
+
+  try {
+    if (!isStringContent) {
+      await thread.send(content);
+      logger.debug('Sent embed message to thread', { threadId, guildId });
+      return;
+    }
+    
+    const stringContent = content as string;
+    const MAX_MESSAGE_LENGTH = 1900;
+    
+    if (stringContent.length <= MAX_MESSAGE_LENGTH) {
+      await thread.send(stringContent);
+      logger.debug('Sent single message to thread', { 
+        threadId, 
+        guildId, 
+        messageLength: stringContent.length 
+      });
+      return;
+    }
+    
+    const chunks = splitMessageIntoChunks(stringContent, MAX_MESSAGE_LENGTH);
+    logger.debug('Split content into chunks for thread', { 
+      threadId, 
+      guildId,
+      totalChunks: chunks.length,
+      chunkLengths: chunks.map(chunk => chunk.length)
+    });
+    
+    for (let i = 0; i < chunks.length; i++) {
+      await thread.send(chunks[i]);
+      logger.debug('Sent chunk to thread', { 
+        threadId, 
+        guildId,
+        chunkIndex: i + 1,
+        totalChunks: chunks.length,
+        chunkLength: chunks[i].length
+      });
+      
+      // Small delay between chunks to avoid rate limits
+      if (i < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    logger.info('Successfully sent all message chunks to thread', { 
+      threadId, 
+      guildId,
+      totalChunks: chunks.length
+    });
+  } catch (error) {
+    logger.error('Error sending message to thread', error, {
+      threadId,
+      guildId,
+      contentType: isStringContent ? 'string' : 'embed',
+      contentLength: isStringContent ? (content as string).length : undefined
+    });
+    throw error;
   }
 }
 
@@ -93,7 +190,14 @@ function splitMessageIntoChunks(message: string, maxLength: number): string[] {
 }
 
 export function shouldCreateThread(contentLength: number): boolean {
-  // Only create threads when the content would exceed Discord's message length limit
-  // This means we'd need multiple messages, making a thread worthwhile
-  return THREAD_CREATION_ENABLED && contentLength > MAX_DISCORD_MESSAGE_LENGTH;
+  const shouldCreate = THREAD_CREATION_ENABLED && contentLength > MAX_DISCORD_MESSAGE_LENGTH;
+  
+  logger.debug('Evaluating if thread should be created', {
+    contentLength,
+    maxLength: MAX_DISCORD_MESSAGE_LENGTH,
+    threadCreationEnabled: THREAD_CREATION_ENABLED,
+    shouldCreate
+  });
+  
+  return shouldCreate;
 } 
