@@ -167,11 +167,17 @@ Once the bot is added to your server, you can use the following slash commands:
 
 ### FastGPT
 ```
-/fastgpt query: Your question here [cache: Optional]
+/fastgpt query: Your question here [file: Optional] [cache: Optional]
 ```
 
 Available options:
+- `file`: Upload a file to include in your query (PDF, code files, text files, etc.)
 - `cache`: Whether to allow cached responses (default: true)
+
+**File limitations:**
+- Maximum file size: 10MB
+- Content is truncated to 8,000 characters if longer
+- For PDFs: Only text-based PDFs work (scanned/image PDFs may fail)
 
 ### Web Search
 ```
