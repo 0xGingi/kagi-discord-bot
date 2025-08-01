@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, Attachment } from 'discord.js';
 import { queryFastGPT } from '../utils/kagiApi';
 import { createThreadForResults, sendMessageToThread } from '../utils/threadManager';
 import logger from '../utils/logger';
@@ -67,6 +67,86 @@ function splitDiscordMessage(message: string, maxLength: number = 1900): string[
   return chunks;
 }
 
+async function processFileContent(attachment: Attachment): Promise<string> {
+  const maxFileSize = 10 * 1024 * 1024; // 10MB limit
+  const supportedTypes = ['text/plain', 'application/pdf', 'text/markdown', 'text/csv'];
+  
+  if (attachment.size > maxFileSize) {
+    throw new Error(`File too large. Maximum size is ${maxFileSize / 1024 / 1024}MB.`);
+  }
+  
+  const extension = attachment.name.toLowerCase().split('.').pop();
+  const textExtensions = ['txt', 'md', 'csv', 'json', 'log', 'py', 'js', 'ts', 'rs', 'go', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'kt', 'swift', 'dart', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'xml', 'html', 'css', 'scss', 'less', 'sql'];
+  
+  if (!supportedTypes.includes(attachment.contentType || '') && !textExtensions.includes(extension || '')) {
+    logger.warn(`Attempting to read unsupported file type: ${attachment.contentType} (${extension})`, {
+      fileName: attachment.name,
+      contentType: attachment.contentType
+    });
+  }
+  
+  try {
+    let content: string;
+    
+    if (attachment.contentType === 'application/pdf' || extension === 'pdf') {
+      const response = await axios.get(attachment.url, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        maxContentLength: maxFileSize
+      });
+      
+      try {
+        const pdfParse = await import('pdf-parse');
+        const pdfData = await pdfParse.default(Buffer.from(response.data));
+        content = pdfData.text;
+        
+        if (!content.trim()) {
+          throw new Error('PDF appears to be empty or contains only images/scanned content');
+        }
+        
+        logger.debug('PDF parsed successfully', {
+          fileName: attachment.name,
+          pages: pdfData.numpages,
+          contentLength: content.length
+        });
+      } catch (pdfError) {
+        logger.warn('Failed to parse PDF, attempting as text', {
+          fileName: attachment.name,
+          error: pdfError instanceof Error ? pdfError.message : String(pdfError)
+        });
+        const textResponse = await axios.get(attachment.url, {
+          responseType: 'text',
+          timeout: 30000,
+          maxContentLength: maxFileSize
+        });
+        content = `[PDF Content - Warning: Could not parse PDF properly, showing raw content]\n\n${textResponse.data}`;
+      }
+    } else {
+      const response = await axios.get(attachment.url, {
+        responseType: 'text',
+        timeout: 30000,
+        maxContentLength: maxFileSize
+      });
+      content = response.data;
+    }
+    
+    // Truncate to 8000 characters
+    const maxContentLength = 8000;
+    if (content.length > maxContentLength) {
+      content = content.substring(0, maxContentLength) + '\n\n[Content truncated due to length...]';
+    }
+    
+    return content;
+  } catch (error) {
+    logger.error('Failed to process file content', error, {
+      fileName: attachment.name,
+      fileSize: attachment.size,
+      contentType: attachment.contentType
+    });
+    throw new Error(`Failed to read file content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export const data = new SlashCommandBuilder()
   .setName('fastgpt')
   .setDescription('Query the Kagi FastGPT API')
@@ -74,6 +154,11 @@ export const data = new SlashCommandBuilder()
     option.setName('query')
       .setDescription('The question you want to ask')
       .setRequired(true)
+  )
+  .addAttachmentOption(option =>
+    option.setName('file')
+      .setDescription('Optional file to include in your query (PDF, TXT, etc.)')
+      .setRequired(false)
   )
   .addBooleanOption(option =>
     option.setName('cache')
@@ -84,13 +169,13 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction) {
   const startTime = Date.now();
   const userId = interaction.user.id;
-  const commandName = 'fastgpt';
   
   try {
     await interaction.deferReply();
     logger.debug('FastGPT command deferred reply successfully', { userId });
 
     const query = interaction.options.getString('query');
+    const attachment = interaction.options.getAttachment('file');
     const cache = interaction.options.getBoolean('cache') ?? true;
     
     if (!query) {
@@ -99,15 +184,49 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
     
+    let finalQuery = query;
+    
+    if (attachment) {
+      logger.info('Processing file attachment for FastGPT query', {
+        userId,
+        fileName: attachment.name,
+        fileSize: attachment.size,
+        contentType: attachment.contentType
+      });
+      
+      try {
+        const fileContent = await processFileContent(attachment);
+        finalQuery = `${query}\n\n--- File Content (${attachment.name}) ---\n${fileContent}`;
+        
+        logger.debug('File content processed successfully', {
+          userId,
+          fileName: attachment.name,
+          contentLength: fileContent.length,
+          finalQueryLength: finalQuery.length
+        });
+      } catch (error) {
+        logger.error('Failed to process file attachment', error, {
+          userId,
+          fileName: attachment.name,
+          fileSize: attachment.size
+        });
+        
+        await interaction.editReply(`Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return;
+      }
+    }
+    
     logger.info('Processing FastGPT query', { 
       userId, 
-      queryLength: query.length, 
+      originalQueryLength: query.length,
+      finalQueryLength: finalQuery.length,
+      hasAttachment: !!attachment,
       cache,
       queryPreview: query.substring(0, 50) + (query.length > 50 ? '...' : '')
     });
 
     const response = await queryFastGPT({
-      query,
+      query: finalQuery,
       cache,
       web_search: true
     });
@@ -148,7 +267,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     replyContent += `\n\n**API Balance:** $${response.meta.api_balance?.toFixed(3) || 'N/A'}`;
 
-    // Check conditions for thread creation:
     const hasCodeBlocks = replyContent.includes("```");
     const isLongResponse = replyContent.length > 1500;
     const createThreads = process.env.CREATE_THREADS_FOR_RESULTS === 'true';
@@ -161,7 +279,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       createThreads
     });
     
-    // Use thread if appropriate
     if (createThreads && (hasCodeBlocks || isLongResponse)) {
       try {
         const thread = await createThreadForResults(interaction, query, 'fastgpt');
@@ -185,11 +302,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           return;
         }
       } catch (threadError) {
-        logger.warn('Failed to create thread for FastGPT response, using regular messages', threadError, { userId });
+        logger.warn('Failed to create thread for FastGPT response, using regular messages', { 
+          userId, 
+          error: threadError instanceof Error ? threadError.message : String(threadError) 
+        });
       }
     }
     
-    // For responses that fit in a single message, or if thread creation failed/disabled
     const messageChunks = splitDiscordMessage(replyContent);
     logger.debug('Split response into message chunks', { 
       userId, 
@@ -208,7 +327,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       }
       logger.info('Sent multi-chunk response', { userId, totalChunks: messageChunks.length });
     } else {
-      // Message too long and couldn't be split nicely, truncate
       const truncated = replyContent.substring(0, 1950) + "... (response truncated due to length)";
       await interaction.editReply(truncated);
       logger.warn('Response truncated due to excessive length', { 

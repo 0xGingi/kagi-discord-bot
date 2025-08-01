@@ -6,12 +6,16 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "axios": "^1.9.0",
-    "discord.js": "^14.19.3",
-    "dotenv": "^16.5.0"
+    "axios": "^1.11.0",
+    "discord.js": "^14.21.0",
+    "dotenv": "^17.2.1",
+    "pdf-parse": "^1.1.1"
   },
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/pdf-parse": "^1.1.5"
   }
 }
